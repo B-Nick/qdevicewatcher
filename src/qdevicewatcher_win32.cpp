@@ -55,7 +55,12 @@ static const GUID InterfaceClassGuid
     = GUID_DEVINTERFACE_USBSTOR; //(GUID)HID_CLASSGUID; //GUID_DEVINTERFACE_USBSTOR
 #endif                           //CONFIG_NOTIFICATION
 
-Q_CORE_EXPORT HINSTANCE qWinAppInst();
+//Q_CORE_EXPORT HINSTANCE qWinAppInst();
+
+HINSTANCE qWinAppInst()
+{
+    return GetModuleHandle(0);
+}
 
 static inline QStringList drivesFromMask(quint32 driveBits) //driveBits ->unitmask
 {
