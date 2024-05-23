@@ -234,8 +234,9 @@ void QDeviceWatcherPrivate::parseLine(const QByteArray &line)
     QString action_str = rx.cap(1).toLower();
     QString dev = "/dev/" + rx.cap(2);
 #else
+    /*!
     if (!line.contains("/block/")) //hotplug
-        return;
+        return; !*/
     QString action_str = line.left(line.indexOf('@')).toLower();
     QString dev = "/dev/" + line.right(line.length() - line.lastIndexOf('/') - 1);
 #endif //USE_REGEXP
