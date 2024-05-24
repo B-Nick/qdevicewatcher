@@ -182,28 +182,57 @@ WM_DEVICECHANGE限制:
 */
 
 
-#ifdef NOT_USED
+#ifndef NOT_USED
 LRESULT CALLBACK dw_internal_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     if (message == WM_DEVICECHANGE) {
         DEV_BROADCAST_HDR *lpdb = (DEV_BROADCAST_HDR *) lParam;
-        qDebug("Device type address: %#x", lpdb);
+        //qDebug("Device type address: %#x", lpdb);
         if (lpdb) {
             if (lpdb->dbch_devicetype == DBT_DEVTYP_PORT) {
                 //qDebug("DBT_DEVTYP_PORT");
-                PDEV_BROADCAST_PORT pDevPort = (PDEV_BROADCAST_PORT) lpdb;
+                PDEV_BROADCAST_PORT pDevPort {(PDEV_BROADCAST_PORT) lpdb};
                 const QString devName {QString::fromWCharArray(pDevPort->dbcp_name)};
-                if (wParam == DBT_DEVICEARRIVAL) {
-                    qDebug() << "Device plugged in" << devName;
-                } else if (wParam == DBT_DEVICEREMOVECOMPLETE) {
-                    qDebug() << "Device unplugged" << devName;
+                if (wParam == DBT_DEVICEARRIVAL ||
+                    wParam == DBT_DEVICEREMOVECOMPLETE)
+                {
+#ifdef GWLP_USERDATA
+                    QDeviceWatcherPrivate *watcher {(QDeviceWatcherPrivate *)
+                                                   GetWindowLongPtr(hwnd, GWLP_USERDATA)};
+#else
+                    QDeviceWatcherPrivate *watcher = (QDeviceWatcherPrivate *)
+                        GetWindowLong(hwnd, GWL_USERDATA);
+#endif
+                    Q_ASSERT(watcher);
+
+                    QList<QDeviceChangeEvent *> events;
+                    QString action_str("change");
+                    QDeviceChangeEvent::Action action {QDeviceChangeEvent::Change};
+                    if (wParam == DBT_DEVICEARRIVAL) {
+                        action_str = "add";
+                        action = QDeviceChangeEvent::Add;
+
+                    } else if (wParam == DBT_DEVICEREMOVECOMPLETE) {
+                        action_str = "remove";
+                        action = QDeviceChangeEvent::Remove;
+                    }
+
+                    watcher->emitDeviceAction(devName, action_str);
+                    if (!watcher->event_receivers.isEmpty())
+                        events.append(new QDeviceChangeEvent(action, devName));
+                    if (!events.isEmpty() && !watcher->event_receivers.isEmpty()) {
+                        foreach (QObject *obj, watcher->event_receivers) {
+                            foreach (QDeviceChangeEvent *event, events) {
+                                QCoreApplication::postEvent(obj, event, Qt::HighEventPriority);
+                            }
+                        }
+                    }
                 }
-                qDebug() << pDevPort->dbcp_size << pDevPort->dbcp_devicetype;
+                //qDebug() << pDevPort->dbcp_size << pDevPort->dbcp_devicetype;
             }
             else if  (lpdb->dbch_devicetype == DBT_DEVTYP_DEVICEINTERFACE) {
                 qDebug("DBT_DEVTYP_DEVICEINTERFACE");
             }
-
         }
     }
 
@@ -211,7 +240,7 @@ LRESULT CALLBACK dw_internal_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM
 }
 #endif // NOT_USED
 
-#ifndef NOT_USED
+#ifdef NOT_USED
 LRESULT CALLBACK dw_internal_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     if (message == WM_DEVICECHANGE) {
