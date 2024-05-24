@@ -87,8 +87,8 @@ static inline QStringList drivesFromMask(quint32 driveBits) //driveBits ->unitma
 #endif
 }
 
-//void static UpdateDevice(PDEV_BROADCAST_DEVICEINTERFACE pDevInf, WPARAM wParam)
-//{
+void static UpdateDevice(PDEV_BROADCAST_DEVICEINTERFACE pDevInf, WPARAM wParam)
+{
     // dbcc_name:
     // \\?\USB#Vid_04e8&Pid_503b#0002F9A9828E0F06#{a5dcbf10-6530-11d2-901f-00c04fb951ed}
     // convert to
@@ -148,7 +148,7 @@ static inline QStringList drivesFromMask(quint32 driveBits) //driveBits ->unitma
         HeapFree(GetProcessHeap(), 0, pspDevInfoData);
     SetupDiDestroyDeviceInfoList(hDevInfo);*/
 
-//}
+}
 
 /*
  http://msdn.microsoft.com/en-us/library/windows/desktop/aa363246%28v=vs.85%29.aspx
@@ -181,10 +181,13 @@ WM_DEVICECHANGE限制:
 2 仅仅串口、磁盘发生改变，才对每个程序广播这个消息
 */
 
+
+#ifdef NOT_USED
 LRESULT CALLBACK dw_internal_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     if (message == WM_DEVICECHANGE) {
         DEV_BROADCAST_HDR *lpdb = (DEV_BROADCAST_HDR *) lParam;
+        qDebug("Device type address: %#x", lpdb);
         if (lpdb) {
             if (lpdb->dbch_devicetype == DBT_DEVTYP_PORT) {
                 //qDebug("DBT_DEVTYP_PORT");
@@ -206,11 +209,14 @@ LRESULT CALLBACK dw_internal_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM
 
     return DefWindowProc(hwnd, message, wParam, lParam);
 }
+#endif // NOT_USED
 
-#ifdef NOT_USED
+#ifndef NOT_USED
 LRESULT CALLBACK dw_internal_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     if (message == WM_DEVICECHANGE) {
+        qDebug("WM_DEVICECHANGE");
+
         DEV_BROADCAST_HDR *lpdb = (DEV_BROADCAST_HDR *) lParam;
         qDebug("Device type address: %#x", lpdb);
         if (lpdb) {
@@ -224,8 +230,11 @@ LRESULT CALLBACK dw_internal_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM
             } else if (lpdb->dbch_devicetype == DBT_DEVTYP_OEM) {
                 qDebug("DBT_DEVTYP_OEM");
             } else {
-                qDebug("Unknow device type");
+                qDebug("Unknown device type");
             }
+
+            qDebug() << "TYPE:" << lpdb->dbch_devicetype;
+
         }
         switch (wParam) {
         case DBT_DEVNODES_CHANGED:
@@ -251,8 +260,8 @@ LRESULT CALLBACK dw_internal_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM
         case DBT_DEVICEQUERYREMOVEFAILED:
         case DBT_DEVICEREMOVEPENDING:
         case DBT_DEVICEREMOVECOMPLETE:
-            qDebug("Remove");
-            if (lpdb->dbch_devicetype == DBT_DEVTYP_VOLUME )
+            qDebug("ACTION");
+            if (lpdb && lpdb->dbch_devicetype == DBT_DEVTYP_VOLUME )
             {
                 DEV_BROADCAST_VOLUME *db_volume = (DEV_BROADCAST_VOLUME *) lpdb;
                 QStringList drives = drivesFromMask(db_volume->dbcv_unitmask);
