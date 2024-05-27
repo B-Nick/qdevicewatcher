@@ -28,12 +28,16 @@
 #undef _WIN32_WINNT
 #define _WIN32_WINNT 0x0500
 #include <dbt.h>
+//#include <Setupapi.h>
+//#include <comdef.h>
+//#include <tchar.h>
+//#include <winbase.h>
 
 #ifndef DBT_CUSTOMEVENT
 #define DBT_CUSTOMEVENT 0x8006
 #endif
 
-#define CONFIG_NOTIFICATION 0
+#define CONFIG_NOTIFICATION 1
 
 /*
  *http://www.codeproject.com/Articles/14500/Detecting-Hardware-Insertion-and-or-Removal
@@ -87,15 +91,99 @@ static inline QStringList drivesFromMask(quint32 driveBits) //driveBits ->unitma
 #endif
 }
 
-void static UpdateDevice(PDEV_BROADCAST_DEVICEINTERFACE pDevInf, WPARAM wParam)
+void static UpdateDevice(PDEV_BROADCAST_DEVICEINTERFACE pDevInf, WPARAM /* wParam */)
 {
     // dbcc_name:
     // \\?\USB#Vid_04e8&Pid_503b#0002F9A9828E0F06#{a5dcbf10-6530-11d2-901f-00c04fb951ed}
     // convert to
     // USB\Vid_04e8&Pid_503b\0002F9A9828E0F06
-    /*ASSERT(lstrlen(pDevInf->dbcc_name) > 4);
-    wchar_t *szDevId = pDevInf->dbcc_name+4;
-    int idx = szDevId.ReverseFind(_T('#'));
+
+    Q_ASSERT(lstrlen(pDevInf->dbcc_name) > 4);
+
+    const wchar_t *const szDevId {pDevInf->dbcc_name + 4};
+
+    QString szDevIdStr {QString::fromWCharArray(szDevId)};
+
+    qDebug() << "AAA0" << szDevIdStr;
+
+    auto idx {szDevIdStr.lastIndexOf('#')};
+
+    Q_ASSERT(idx != -1);
+
+    szDevIdStr.truncate(idx);
+
+    qDebug() << "AAA1" << szDevIdStr;
+
+#ifdef SOME_STRANGE_THINGS_HAPPEN_BELOW
+    szDevIdStr.replace("#", "||");
+
+    qDebug() << "AAA2" << szDevIdStr;
+
+    szDevIdStr = szDevIdStr.toUpper();
+
+    qDebug() << "AAA3" << szDevIdStr;
+
+    idx = szDevIdStr.indexOf("||");
+
+    Q_ASSERT(idx != -1);
+
+    const QString szClass {szDevIdStr.left(idx)};
+
+    qDebug() << "AAA4" << szClass;
+
+    // if we are adding device, we only need present devices
+    // otherwise, we need all devices
+    const DWORD dwFlag = DBT_DEVICEARRIVAL != wParam
+                             ? DIGCF_ALLCLASSES : (DIGCF_ALLCLASSES | DIGCF_PRESENT);
+
+    std::unique_ptr<wchar_t[]> buf {std::make_unique<wchar_t[]>(szClass.length() + 1)};
+    const qsizetype length {szClass.toWCharArray(buf.get())};
+    buf[length] = L'\0';
+
+    const HDEVINFO hDevInfo {SetupDiGetClassDevs(NULL, buf.get(), NULL, dwFlag)};
+
+    if (hDevInfo == INVALID_HANDLE_VALUE)
+    {
+        qDebug() << QString("SetupDiGetClassDevs(): ") + QString::fromWCharArray(_com_error(GetLastError()).ErrorMessage());
+        return;
+    }
+
+    SP_DEVINFO_DATA* pspDevInfoData = (SP_DEVINFO_DATA*)HeapAlloc(GetProcessHeap(), 0, sizeof(SP_DEVINFO_DATA));
+    pspDevInfoData->cbSize = sizeof(SP_DEVINFO_DATA);
+    for (int i = 0; SetupDiEnumDeviceInfo(hDevInfo,i,pspDevInfoData); ++i)
+    {
+        DWORD DataT ;
+        DWORD nSize=0 ;
+        TCHAR buf1[MAX_PATH];
+        if (!SetupDiGetDeviceInstanceId(hDevInfo, pspDevInfoData, buf1, sizeof(buf), &nSize))
+        {
+            qDebug() << "SetupDiGetDeviceInstanceId(): " + QString::fromWCharArray(_com_error(GetLastError()).ErrorMessage());
+            break;
+        }
+
+        if (szDevId == buf1) {
+            // device found
+            if (SetupDiGetDeviceRegistryProperty(hDevInfo, pspDevInfoData,
+                                                 SPDRP_FRIENDLYNAME, &DataT, (PBYTE)buf1, sizeof(buf), &nSize)) {
+                // do nothing
+            } else if (SetupDiGetDeviceRegistryProperty(hDevInfo, pspDevInfoData,
+                                                        SPDRP_DEVICEDESC, &DataT, (PBYTE)buf1, sizeof(buf), &nSize)) {
+                // do nothing
+            } else {
+                lstrcpy(buf1, _T("Unknown"));
+            }
+            // update UI
+            break;
+        }
+    }
+
+    if (pspDevInfoData)
+        HeapFree(GetProcessHeap(), 0, pspDevInfoData);
+    SetupDiDestroyDeviceInfoList(hDevInfo);
+
+
+// ORIGINAL:
+    /*int idx {szDevId.ReverseFind(_T('#'))};
     ASSERT( -1 != idx );
     szDevId.Truncate(idx);
     szDevId.Replace(_T('#'), _T('\\'));
@@ -147,7 +235,7 @@ void static UpdateDevice(PDEV_BROADCAST_DEVICEINTERFACE pDevInf, WPARAM wParam)
     if (pspDevInfoData)
         HeapFree(GetProcessHeap(), 0, pspDevInfoData);
     SetupDiDestroyDeviceInfoList(hDevInfo);*/
-
+#endif // SOME_STRANGE_THINGS_HAPPEN_BELOW
 }
 
 /*
@@ -185,57 +273,64 @@ WM_DEVICECHANGE限制:
 #ifndef NOT_USED
 LRESULT CALLBACK dw_internal_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    if (message == WM_DEVICECHANGE) {
-        DEV_BROADCAST_HDR *lpdb = (DEV_BROADCAST_HDR *) lParam;
-        //qDebug("Device type address: %#x", lpdb);
-        if (lpdb) {
-            if (lpdb->dbch_devicetype == DBT_DEVTYP_PORT) {
-                //qDebug("DBT_DEVTYP_PORT");
-                PDEV_BROADCAST_PORT pDevPort {(PDEV_BROADCAST_PORT) lpdb};
-                const QString devName {QString::fromWCharArray(pDevPort->dbcp_name)};
-                if (wParam == DBT_DEVICEARRIVAL ||
-                    wParam == DBT_DEVICEREMOVECOMPLETE)
-                {
+    if (message == WM_DEVICECHANGE)
+    {
+        const DEV_BROADCAST_HDR *const lpdb = (const DEV_BROADCAST_HDR *const) lParam;
+        // qDebug("Device type address: %#x", lpdb);
+
 #ifdef GWLP_USERDATA
-                    QDeviceWatcherPrivate *watcher {(QDeviceWatcherPrivate *)
-                                                   GetWindowLongPtr(hwnd, GWLP_USERDATA)};
+        QDeviceWatcherPrivate *watcher {(QDeviceWatcherPrivate *)
+                                       GetWindowLongPtr(hwnd, GWLP_USERDATA)};
 #else
-                    QDeviceWatcherPrivate *watcher = (QDeviceWatcherPrivate *)
-                        GetWindowLong(hwnd, GWL_USERDATA);
+        QDeviceWatcherPrivate *watcher {(QDeviceWatcherPrivate *)
+                                       GetWindowLong(hwnd, GWL_USERDATA)};
 #endif
-                    Q_ASSERT(watcher);
+        if (lpdb && watcher)
+        {
+            QString action_str("change");
+            QDeviceChangeEvent::Action action {QDeviceChangeEvent::Change};
+            if (wParam == DBT_DEVICEARRIVAL)
+            {
+                action_str = "add";
+                action = QDeviceChangeEvent::Add;
+            }
+            else if (wParam == DBT_DEVICEREMOVECOMPLETE)
+            {
+                action_str = "remove";
+                action = QDeviceChangeEvent::Remove;
+            }
 
-                    QList<QDeviceChangeEvent *> events;
-                    QString action_str("change");
-                    QDeviceChangeEvent::Action action {QDeviceChangeEvent::Change};
-                    if (wParam == DBT_DEVICEARRIVAL) {
-                        action_str = "add";
-                        action = QDeviceChangeEvent::Add;
+            if (lpdb->dbch_devicetype == DBT_DEVTYP_DEVICEINTERFACE)
+            {
+                // qDebug("DBT_DEVTYP_DEVICEINTERFACE");
+                PDEV_BROADCAST_DEVICEINTERFACE pDevInf = (PDEV_BROADCAST_DEVICEINTERFACE) lpdb;
+                QString devName {QString::fromWCharArray(pDevInf->dbcc_name)};
+                const auto idx {devName.lastIndexOf('#')};
 
-                    } else if (wParam == DBT_DEVICEREMOVECOMPLETE) {
-                        action_str = "remove";
-                        action = QDeviceChangeEvent::Remove;
-                    }
+                Q_ASSERT(idx != -1);
 
-                    watcher->emitDeviceAction(devName, action_str);
-                    if (!watcher->event_receivers.isEmpty())
-                        events.append(new QDeviceChangeEvent(action, devName));
-                    if (!events.isEmpty() && !watcher->event_receivers.isEmpty()) {
-                        foreach (QObject *obj, watcher->event_receivers) {
-                            foreach (QDeviceChangeEvent *event, events) {
-                                QCoreApplication::postEvent(obj, event, Qt::HighEventPriority);
-                            }
+                devName.truncate(idx);
+                devName = devName.toUpper();
+
+                QList<QDeviceChangeEvent *> events;
+                watcher->emitDeviceAction(devName, action_str);
+                if (!watcher->event_receivers.isEmpty())
+                {
+                    events.append(new QDeviceChangeEvent(action, devName));
+                }
+                if (!events.isEmpty() && !watcher->event_receivers.isEmpty())
+                {
+                    foreach (QObject *obj, watcher->event_receivers)
+                    {
+                        foreach (QDeviceChangeEvent *event, events)
+                        {
+                            QCoreApplication::postEvent(obj, event, Qt::HighEventPriority);
                         }
                     }
                 }
-                //qDebug() << pDevPort->dbcp_size << pDevPort->dbcp_devicetype;
-            }
-            else if  (lpdb->dbch_devicetype == DBT_DEVTYP_DEVICEINTERFACE) {
-                qDebug("DBT_DEVTYP_DEVICEINTERFACE");
             }
         }
     }
-
     return DefWindowProc(hwnd, message, wParam, lParam);
 }
 #endif // NOT_USED
@@ -289,8 +384,9 @@ LRESULT CALLBACK dw_internal_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM
         case DBT_DEVICEQUERYREMOVEFAILED:
         case DBT_DEVICEREMOVEPENDING:
         case DBT_DEVICEREMOVECOMPLETE:
+            qDebug("Arrival or Remove");
             qDebug("ACTION");
-            if (lpdb && lpdb->dbch_devicetype == DBT_DEVTYP_VOLUME )
+            if (lpdb && lpdb->dbch_devicetype == DBT_DEVTYP_VOLUME)
             {
                 DEV_BROADCAST_VOLUME *db_volume = (DEV_BROADCAST_VOLUME *) lpdb;
                 QStringList drives = drivesFromMask(db_volume->dbcv_unitmask);
@@ -416,8 +512,17 @@ static inline HWND dw_create_internal_window(const void *userData)
         hDevNotify = RegisterDeviceNotification(hwnd,
                                                 &NotificationFilter,
                                                 DEVICE_NOTIFY_WINDOW_HANDLE);
-        if (!hDevNotify) {
+        if (!hDevNotify)
+        {
             zDebug("");
+        }
+        if (userData)
+        {
+#ifdef GWLP_USERDATA
+            SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR) userData);
+#else
+            SetWindowLong(hwnd, GWL_USERDATA, (LONG) userData);
+#endif
         }
     }
 #else
