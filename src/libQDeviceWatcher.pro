@@ -23,7 +23,8 @@ unix {
 win32 {
   wince*: SOURCES += qdevicewatcher_wince.cpp
   else:  SOURCES += qdevicewatcher_win32.cpp
-  LIBS *= -luser32 #  -lSetupAPI
+  LIBS *= -luser32
+  contains(DEFINES,FRIENDLY_DEVICE_ID): LIBS *= -lSetupAPI
 }
 
 SOURCES += qdevicewatcher.cpp

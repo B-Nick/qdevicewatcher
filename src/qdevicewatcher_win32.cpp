@@ -28,10 +28,15 @@
 #undef _WIN32_WINNT
 #define _WIN32_WINNT 0x0500
 #include <dbt.h>
-//#include <Setupapi.h>
-//#include <comdef.h>
-//#include <tchar.h>
-//#include <winbase.h>
+
+#include <devguid.h>
+
+#ifdef FRIENDLY_DEVICE_ID
+#include <Setupapi.h>
+#include <comdef.h>
+#include <tchar.h>
+#include <winbase.h>
+#endif // FRIENDLY_DEVICE_ID
 
 #ifndef DBT_CUSTOMEVENT
 #define DBT_CUSTOMEVENT 0x8006
@@ -66,6 +71,7 @@ HINSTANCE qWinAppInst()
     return GetModuleHandle(0);
 }
 
+#ifdef DRIVES_DETECTION
 static inline QStringList drivesFromMask(quint32 driveBits) //driveBits ->unitmask
 {
     QStringList ret;
@@ -90,8 +96,10 @@ static inline QStringList drivesFromMask(quint32 driveBits) //driveBits ->unitma
     return ret << QString(c) + ":";
 #endif
 }
+#endif // DRIVES_DETECTION
 
-void static UpdateDevice(PDEV_BROADCAST_DEVICEINTERFACE pDevInf, WPARAM /* wParam */)
+#ifdef FRIENDLY_DEVICE_ID
+void static UpdateDevice(PDEV_BROADCAST_DEVICEINTERFACE pDevInf, WPARAM wParam)
 {
     // dbcc_name:
     // \\?\USB#Vid_04e8&Pid_503b#0002F9A9828E0F06#{a5dcbf10-6530-11d2-901f-00c04fb951ed}
@@ -100,11 +108,9 @@ void static UpdateDevice(PDEV_BROADCAST_DEVICEINTERFACE pDevInf, WPARAM /* wPara
 
     Q_ASSERT(lstrlen(pDevInf->dbcc_name) > 4);
 
-    const wchar_t *const szDevId {pDevInf->dbcc_name + 4};
+    wchar_t *szDevId {pDevInf->dbcc_name + 4};
 
     QString szDevIdStr {QString::fromWCharArray(szDevId)};
-
-    qDebug() << "AAA0" << szDevIdStr;
 
     auto idx {szDevIdStr.lastIndexOf('#')};
 
@@ -112,24 +118,15 @@ void static UpdateDevice(PDEV_BROADCAST_DEVICEINTERFACE pDevInf, WPARAM /* wPara
 
     szDevIdStr.truncate(idx);
 
-    qDebug() << "AAA1" << szDevIdStr;
-
-#ifdef SOME_STRANGE_THINGS_HAPPEN_BELOW
-    szDevIdStr.replace("#", "||");
-
-    qDebug() << "AAA2" << szDevIdStr;
+    szDevIdStr.replace("#", "\\");
 
     szDevIdStr = szDevIdStr.toUpper();
 
-    qDebug() << "AAA3" << szDevIdStr;
-
-    idx = szDevIdStr.indexOf("||");
+    idx = szDevIdStr.indexOf("\\");
 
     Q_ASSERT(idx != -1);
 
     const QString szClass {szDevIdStr.left(idx)};
-
-    qDebug() << "AAA4" << szClass;
 
     // if we are adding device, we only need present devices
     // otherwise, we need all devices
@@ -155,20 +152,29 @@ void static UpdateDevice(PDEV_BROADCAST_DEVICEINTERFACE pDevInf, WPARAM /* wPara
         DWORD DataT ;
         DWORD nSize=0 ;
         TCHAR buf1[MAX_PATH];
-        if (!SetupDiGetDeviceInstanceId(hDevInfo, pspDevInfoData, buf1, sizeof(buf), &nSize))
+        if (!SetupDiGetDeviceInstanceId(hDevInfo, pspDevInfoData, buf1, sizeof(buf1), &nSize))
         {
             qDebug() << "SetupDiGetDeviceInstanceId(): " + QString::fromWCharArray(_com_error(GetLastError()).ErrorMessage());
             break;
         }
 
-        if (szDevId == buf1) {
+        const QString buf1Str {QString::fromWCharArray(buf1)};
+
+        if (szDevIdStr == buf1Str) {
+            qDebug() << "Device found" << buf1Str;
+
             // device found
             if (SetupDiGetDeviceRegistryProperty(hDevInfo, pspDevInfoData,
-                                                 SPDRP_FRIENDLYNAME, &DataT, (PBYTE)buf1, sizeof(buf), &nSize)) {
+                                                 SPDRP_FRIENDLYNAME, &DataT, (PBYTE)buf1, sizeof(buf1), &nSize)) {
                 // do nothing
+
+                qDebug() << QString::fromWCharArray(buf1);
+
             } else if (SetupDiGetDeviceRegistryProperty(hDevInfo, pspDevInfoData,
-                                                        SPDRP_DEVICEDESC, &DataT, (PBYTE)buf1, sizeof(buf), &nSize)) {
+                                                        SPDRP_DEVICEDESC, &DataT, (PBYTE)buf1, sizeof(buf1), &nSize)) {
                 // do nothing
+
+                qDebug() << QString::fromWCharArray(buf1);
             } else {
                 lstrcpy(buf1, _T("Unknown"));
             }
@@ -180,63 +186,8 @@ void static UpdateDevice(PDEV_BROADCAST_DEVICEINTERFACE pDevInf, WPARAM /* wPara
     if (pspDevInfoData)
         HeapFree(GetProcessHeap(), 0, pspDevInfoData);
     SetupDiDestroyDeviceInfoList(hDevInfo);
-
-
-// ORIGINAL:
-    /*int idx {szDevId.ReverseFind(_T('#'))};
-    ASSERT( -1 != idx );
-    szDevId.Truncate(idx);
-    szDevId.Replace(_T('#'), _T('\\'));
-    szDevId.MakeUpper();
-
-    CString szClass;
-    idx = szDevId.Find(_T('\\'));
-    ASSERT(-1 != idx );
-    szClass = szDevId.Left(idx);
-
-    // if we are adding device, we only need present devices
-    // otherwise, we need all devices
-    DWORD dwFlag = DBT_DEVICEARRIVAL != wParam
-        ? DIGCF_ALLCLASSES : (DIGCF_ALLCLASSES | DIGCF_PRESENT);
-    HDEVINFO hDevInfo = SetupDiGetClassDevs(NULL, szClass, NULL, dwFlag);
-    if( INVALID_HANDLE_VALUE == hDevInfo )
-    {
-        zDebug("SetupDiGetClassDevs(): " + _com_error(GetLastError()).ErrorMessage());
-        return;
-    }
-
-    SP_DEVINFO_DATA* pspDevInfoData = (SP_DEVINFO_DATA*)HeapAlloc(GetProcessHeap(), 0, sizeof(SP_DEVINFO_DATA));
-    pspDevInfoData->cbSize = sizeof(SP_DEVINFO_DATA);
-    for(int i=0; SetupDiEnumDeviceInfo(hDevInfo,i,pspDevInfoData); ++i) {
-        DWORD DataT ;
-        DWORD nSize=0 ;
-        TCHAR buf[MAX_PATH];
-        if (!SetupDiGetDeviceInstanceId(hDevInfo, pspDevInfoData, buf, sizeof(buf), &nSize)) {
-            zDebug("SetupDiGetDeviceInstanceId(): " + _com_error(GetLastError()).ErrorMessage());
-            break;
-        }
-
-        if (szDevId == buf) {
-            // device found
-            if (SetupDiGetDeviceRegistryProperty(hDevInfo, pspDevInfoData,
-                SPDRP_FRIENDLYNAME, &DataT, (PBYTE)buf, sizeof(buf), &nSize)) {
-                // do nothing
-            } else if (SetupDiGetDeviceRegistryProperty(hDevInfo, pspDevInfoData,
-                SPDRP_DEVICEDESC, &DataT, (PBYTE)buf, sizeof(buf), &nSize)) {
-                // do nothing
-            } else {
-                lstrcpy(buf, _T("Unknown"));
-            }
-            // update UI
-            break;
-        }
-    }
-
-    if (pspDevInfoData)
-        HeapFree(GetProcessHeap(), 0, pspDevInfoData);
-    SetupDiDestroyDeviceInfoList(hDevInfo);*/
-#endif // SOME_STRANGE_THINGS_HAPPEN_BELOW
 }
+#endif // FRIENDLY_DEVICE_ID
 
 /*
  http://msdn.microsoft.com/en-us/library/windows/desktop/aa363246%28v=vs.85%29.aspx
@@ -269,7 +220,6 @@ WM_DEVICECHANGE限制:
 2 仅仅串口、磁盘发生改变，才对每个程序广播这个消息
 */
 
-
 #ifndef NOT_USED
 LRESULT CALLBACK dw_internal_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -300,23 +250,47 @@ LRESULT CALLBACK dw_internal_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM
                 action = QDeviceChangeEvent::Remove;
             }
 
-            if (lpdb->dbch_devicetype == DBT_DEVTYP_DEVICEINTERFACE)
+            QString device;
+            switch (lpdb->dbch_devicetype)
             {
-                // qDebug("DBT_DEVTYP_DEVICEINTERFACE");
+            case DBT_DEVTYP_DEVICEINTERFACE:
+            {
+                qDebug("DBT_DEVTYP_DEVICEINTERFACE");
                 PDEV_BROADCAST_DEVICEINTERFACE pDevInf = (PDEV_BROADCAST_DEVICEINTERFACE) lpdb;
-                QString devName {QString::fromWCharArray(pDevInf->dbcc_name)};
-                const auto idx {devName.lastIndexOf('#')};
+                device = QString::fromWCharArray(pDevInf->dbcc_name);
+                break;
+            }
+            case DBT_DEVTYP_PORT:
+            {
+                qDebug("DBT_DEVTYP_PORT");
+                PDEV_BROADCAST_PORT pDevPort {(PDEV_BROADCAST_PORT) lpdb};
+                device = QString::fromWCharArray(pDevPort->dbcp_name);
+                if (!device.startsWith("\\\\.\\"))
+                {
+                    device.prepend("\\\\.\\");
+                }
+                break;
+            }
+            case DBT_DEVTYP_HANDLE:
+                qDebug("DBT_DEVTYP_HANDLE");
+                break;
+            case DBT_DEVTYP_OEM:
+                qDebug("DBT_DEVTYP_OEM");
+                break;
+            case DBT_DEVTYP_VOLUME:
+                qDebug("DBT_DEVTYP_VOLUME");
+                break;
+            default:
+                qDebug("UNKNOWN");
+            }
 
-                Q_ASSERT(idx != -1);
-
-                devName.truncate(idx);
-                devName = devName.toUpper();
-
+            if (!device.isEmpty())
+            {
                 QList<QDeviceChangeEvent *> events;
-                watcher->emitDeviceAction(devName, action_str);
+                watcher->emitDeviceAction(device, action_str);
                 if (!watcher->event_receivers.isEmpty())
                 {
-                    events.append(new QDeviceChangeEvent(action, devName));
+                    events.append(new QDeviceChangeEvent(action, device));
                 }
                 if (!events.isEmpty() && !watcher->event_receivers.isEmpty())
                 {
@@ -334,133 +308,6 @@ LRESULT CALLBACK dw_internal_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM
     return DefWindowProc(hwnd, message, wParam, lParam);
 }
 #endif // NOT_USED
-
-#ifdef NOT_USED
-LRESULT CALLBACK dw_internal_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
-{
-    if (message == WM_DEVICECHANGE) {
-        qDebug("WM_DEVICECHANGE");
-
-        DEV_BROADCAST_HDR *lpdb = (DEV_BROADCAST_HDR *) lParam;
-        qDebug("Device type address: %#x", lpdb);
-        if (lpdb) {
-            if (lpdb->dbch_devicetype == DBT_DEVTYP_VOLUME) {
-                qDebug("DBT_DEVTYP_VOLUME");
-            } else if (lpdb->dbch_devicetype == DBT_DEVTYP_PORT) {
-                qDebug("DBT_DEVTYP_PORT1");
-
-            } else if (lpdb->dbch_devicetype == DBT_DEVTYP_DEVICEINTERFACE) {
-                qDebug("DBT_DEVTYP_DEVICEINTERFACE");
-            } else if (lpdb->dbch_devicetype == DBT_DEVTYP_OEM) {
-                qDebug("DBT_DEVTYP_OEM");
-            } else {
-                qDebug("Unknown device type");
-            }
-
-            qDebug() << "TYPE:" << lpdb->dbch_devicetype;
-
-        }
-        switch (wParam) {
-        case DBT_DEVNODES_CHANGED:
-            qDebug("DBT_DEVNODES_CHANGED message received, no extended info.");
-            break;
-        case DBT_QUERYCHANGECONFIG:
-            qDebug("DBT_QUERYCHANGECONFIG message received, no extended info.");
-            break;
-        case DBT_CONFIGCHANGED:
-            qDebug("DBT_CONFIGCHANGED message received, no extended info.");
-            break;
-        case DBT_CONFIGCHANGECANCELED:
-            qDebug("DBT_CONFIGCHANGECANCELED message received, no extended info.");
-            break;
-
-
-        case DBT_DEVICEARRIVAL:
-            qDebug("Arrival");
-
-        case DBT_DEVICEQUERYREMOVE:
-
-
-        case DBT_DEVICEQUERYREMOVEFAILED:
-        case DBT_DEVICEREMOVEPENDING:
-        case DBT_DEVICEREMOVECOMPLETE:
-            qDebug("Arrival or Remove");
-            qDebug("ACTION");
-            if (lpdb && lpdb->dbch_devicetype == DBT_DEVTYP_VOLUME)
-            {
-                DEV_BROADCAST_VOLUME *db_volume = (DEV_BROADCAST_VOLUME *) lpdb;
-                QStringList drives = drivesFromMask(db_volume->dbcv_unitmask);
-#ifdef GWLP_USERDATA
-                QDeviceWatcherPrivate *watcher = (QDeviceWatcherPrivate *)
-                    GetWindowLongPtr(hwnd, GWLP_USERDATA);
-#else
-                QDeviceWatcherPrivate *watcher = (QDeviceWatcherPrivate *)
-                    GetWindowLong(hwnd, GWL_USERDATA);
-#endif
-                QList<QDeviceChangeEvent *> events;
-                QString action_str("add");
-                QDeviceChangeEvent::Action action = QDeviceChangeEvent::Add;
-                if (wParam == DBT_DEVICEARRIVAL) {
-                } else if (wParam == DBT_DEVICEQUERYREMOVE) {
-                } else if (wParam == DBT_DEVICEQUERYREMOVEFAILED) {
-                } else if (wParam == DBT_DEVICEREMOVEPENDING) {
-                } else if (wParam == DBT_DEVICEREMOVECOMPLETE) {
-                    action_str = "remove";
-                    action = QDeviceChangeEvent::Remove;
-                }
-                foreach (const QString &drive, drives) {
-                    if (db_volume->dbcv_flags & DBTF_MEDIA)
-                        qDebug("Drive %c: Media has been removed.", drive.at(0).toLatin1());
-                    else if (db_volume->dbcv_flags & DBTF_NET)
-                        qDebug("Drive %c: Network share has been removed.", drive.at(0).toLatin1());
-                    else
-                        qDebug("Drive %c: Device has been removed.", drive.at(0).toLatin1());
-                    watcher->emitDeviceAction(drive, action_str);
-                    if (!watcher->event_receivers.isEmpty())
-                        events.append(new QDeviceChangeEvent(action, drive));
-                }
-                if (!events.isEmpty() && !watcher->event_receivers.isEmpty()) {
-                    foreach (QObject *obj, watcher->event_receivers) {
-                        foreach (QDeviceChangeEvent *event, events) {
-                            QCoreApplication::postEvent(obj, event, Qt::HighEventPriority);
-                        }
-                    }
-                }
-            } else if (lpdb->dbch_devicetype == DBT_DEVTYP_PORT) {
-                qDebug("DBT_DEVTYP_PORT2");
-                PDEV_BROADCAST_PORT pDevPort = (PDEV_BROADCAST_PORT) lpdb;
-            } else if (lpdb->dbch_devicetype == DBT_DEVTYP_DEVICEINTERFACE) {
-                //RegisterDeviceNotification()
-                qDebug("DBT_DEVTYP_DEVICEINTERFACE");
-                PDEV_BROADCAST_DEVICEINTERFACE pDevInf = (PDEV_BROADCAST_DEVICEINTERFACE) lpdb;
-                UpdateDevice(pDevInf, wParam);
-            } else if (lpdb->dbch_devicetype == DBT_DEVTYP_OEM) {
-                qDebug("DBT_DEVTYP_OEM");
-                DEV_BROADCAST_OEM *pDevOem = (DEV_BROADCAST_OEM *) lpdb;
-            } else if (lpdb->dbch_devicetype == DBT_DEVTYP_HANDLE) {
-                qDebug("DBT_DEVTYP_HANDLE");
-                PDEV_BROADCAST_HANDLE pDevHnd = (PDEV_BROADCAST_HANDLE) lpdb;
-            }
-            break;
-        case DBT_DEVICETYPESPECIFIC:
-            qDebug("DBT_DEVICETYPESPECIFIC message received, may contain an extended info.");
-            break;
-        case DBT_CUSTOMEVENT:
-            qDebug("DBT_CUSTOMEVENT message received, contains an extended info.");
-            break;
-        case DBT_USERDEFINED:
-            qDebug("WM_DEVICECHANGE user defined message received, can not handle.");
-            break;
-        default:
-            qWarning("WM_DEVICECHANGE message received, unhandled value %d.", wParam);
-            break;
-        }
-    }
-
-    return DefWindowProc(hwnd, message, wParam, lParam);
-}
-#endif // NOT_USED
-
 
 static inline QString className()
 {
@@ -518,20 +365,20 @@ static inline HWND dw_create_internal_window(const void *userData)
         }
         if (userData)
         {
-#ifdef GWLP_USERDATA
+#  ifdef GWLP_USERDATA
             SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR) userData);
-#else
+#  else
             SetWindowLong(hwnd, GWL_USERDATA, (LONG) userData);
-#endif
+#  endif
         }
     }
 #else
     } else if (userData) {
-#ifdef GWLP_USERDATA
+#  ifdef GWLP_USERDATA
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR) userData);
-#else
+#  else
         SetWindowLong(hwnd, GWL_USERDATA, (LONG) userData);
-#endif
+#  endif
     }
 #endif //CONFIG_NOTIFICATION
     return hwnd;

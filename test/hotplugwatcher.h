@@ -63,21 +63,21 @@ public:
 public slots:
     void slotDeviceAdded(const QString &dev)
     {
-        qDebug("tid=%#x %s: add %s",
+        qDebug("SIGNAL tid=%#x %s: add %s",
                (quintptr) QThread::currentThreadId(),
                __PRETTY_FUNCTION__,
                qPrintable(dev));
     }
     void slotDeviceRemoved(const QString &dev)
     {
-        qDebug("tid=%#x %s: remove %s",
+        qDebug("SIGNAL tid=%#x %s: remove %s",
                (quintptr) QThread::currentThreadId(),
                __PRETTY_FUNCTION__,
                qPrintable(dev));
     }
     void slotDeviceChanged(const QString &dev)
     {
-        qDebug("tid=%#x %s: change %s",
+        qDebug("SIGNAL tid=%#x %s: change %s",
                (quintptr) QThread::currentThreadId(),
                __PRETTY_FUNCTION__,
                qPrintable(dev));
