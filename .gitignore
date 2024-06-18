@@ -572,4 +572,10 @@ MigrationBackup/
 # build directory
 build/
 
+# bin directory
+bin/
+
+# lib directory
+lib/
+
 # End of https://www.gitignore.io/api/c,qt,c++,linux,macos,windows,qtcreator,visualstudio,visualstudiocode
