@@ -255,14 +255,14 @@ LRESULT CALLBACK dw_internal_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM
             {
             case DBT_DEVTYP_DEVICEINTERFACE:
             {
-                qDebug("DBT_DEVTYP_DEVICEINTERFACE");
+                //qDebug("DBT_DEVTYP_DEVICEINTERFACE");
                 PDEV_BROADCAST_DEVICEINTERFACE pDevInf = (PDEV_BROADCAST_DEVICEINTERFACE) lpdb;
                 device = QString::fromWCharArray(pDevInf->dbcc_name);
                 break;
             }
             case DBT_DEVTYP_PORT:
             {
-                qDebug("DBT_DEVTYP_PORT");
+                //qDebug("DBT_DEVTYP_PORT");
                 PDEV_BROADCAST_PORT pDevPort {(PDEV_BROADCAST_PORT) lpdb};
                 device = QString::fromWCharArray(pDevPort->dbcp_name);
                 if (!device.startsWith("\\\\.\\"))
@@ -272,13 +272,13 @@ LRESULT CALLBACK dw_internal_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM
                 break;
             }
             case DBT_DEVTYP_HANDLE:
-                qDebug("DBT_DEVTYP_HANDLE");
+                //qDebug("DBT_DEVTYP_HANDLE");
                 break;
             case DBT_DEVTYP_OEM:
-                qDebug("DBT_DEVTYP_OEM");
+                //qDebug("DBT_DEVTYP_OEM");
                 break;
             case DBT_DEVTYP_VOLUME:
-                qDebug("DBT_DEVTYP_VOLUME");
+                //qDebug("DBT_DEVTYP_VOLUME");
                 break;
             default:
                 qDebug("UNKNOWN");
