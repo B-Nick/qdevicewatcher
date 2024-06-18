@@ -220,6 +220,7 @@ WM_DEVICECHANGE限制:
 2 仅仅串口、磁盘发生改变，才对每个程序广播这个消息
 */
 
+
 #ifndef NOT_USED
 LRESULT CALLBACK dw_internal_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -425,3 +426,5 @@ bool QDeviceWatcherPrivate::init()
 void QDeviceWatcherPrivate::parseDeviceInfo() {}
 
 #endif //Q_OS_WIN32
+
+// test
