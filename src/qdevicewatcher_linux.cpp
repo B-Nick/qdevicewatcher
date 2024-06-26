@@ -100,7 +100,7 @@ namespace
 
 void appendData(const QString &data, QString &dev)
 {
-    dev.append("*#*" + data);
+    dev.append("@#@" + data);
 }
 
 
