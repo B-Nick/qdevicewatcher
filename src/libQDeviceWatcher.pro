@@ -12,7 +12,7 @@ unix {
   macx {
     SOURCES += qdevicewatcher_mac.cpp
     LIBS += -framework DiskArbitration -framework Foundation
-  } else {
+  } else {  # linux
     SOURCES += qdevicewatcher_linux.cpp
 
     greaterThan(QT_MAJOR_VERSION, 5) {

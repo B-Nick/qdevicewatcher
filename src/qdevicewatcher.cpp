@@ -84,6 +84,7 @@ void QDeviceWatcherPrivate::emitDeviceRemoved(const QString &dev)
         qWarning("invoke deviceRemoved failed");
 }
 
+// TODO: Use enum instead of string to differentiate action
 void QDeviceWatcherPrivate::emitDeviceAction(const QString &dev, const QString &action)
 {
     QString a(action.toLower());
