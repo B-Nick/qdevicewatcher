@@ -465,6 +465,9 @@ defineTest(preparePaths) {
     #export(TARGET)
     return(true)
 }
+
+#DEFINES += VERBOSE_DEBUG_OUTPUT
+
 COMMON_PRI_INCLUDED = 1
 
 } #end COMMON_PRI_INCLUDED

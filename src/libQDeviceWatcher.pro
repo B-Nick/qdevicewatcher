@@ -30,6 +30,8 @@ win32 {
 SOURCES += qdevicewatcher.cpp
 
 
+#DEFINES += USE_BIND_AS_ADD
+
 HEADERS += \
 	qdevicewatcher_p.h \
 	qdevicewatcher.h

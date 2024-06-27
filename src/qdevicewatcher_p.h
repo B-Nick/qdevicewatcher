@@ -39,7 +39,7 @@
 #endif
 
 #if CONFIG_DEBUG
-#define zDebug(fmt, ...) qDebug("%s: " #fmt, __FUNCTION__, ##__VA_ARGS__)
+#define zDebug(fmt, ...) qDebug("%s: " #fmt, __func__, ##__VA_ARGS__)
 #else
 #define zDebug(fmt, ...)
 #endif //CONFIG_DEBUG

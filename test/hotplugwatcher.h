@@ -24,8 +24,11 @@
 #include <QtCore/QObject>
 #include <QtCore/QThread>
 
+#include <QtCore/QTime>
+
+
 #ifndef __GNUC__
-#define __PRETTY_FUNCTION__ __FUNCTION__
+#define __PRETTY_FUNCTION__ __func__
 #endif
 
 class HotplugWatcher : public QThread
@@ -35,7 +38,8 @@ public:
     HotplugWatcher(QObject *parent = 0)
         : QThread(parent)
     {
-        qDebug("tid=%#x %s", (quintptr) QThread::currentThreadId(), __PRETTY_FUNCTION__);
+        qDebug("%s: tid=%#llx %s", qPrintable(QTime::currentTime().toString()),
+               (quintptr) QThread::currentThreadId(), __PRETTY_FUNCTION__);
         start();
 
         moveToThread(this); //Let bool event(QEvent *e) be in another thread
@@ -63,21 +67,21 @@ public:
 public slots:
     void slotDeviceAdded(const QString &dev)
     {
-        qDebug("SIGNAL tid=%#x %s: add %s",
+        qDebug("%s: SIGNAL tid=%#llx %s: add %s", qPrintable(QTime::currentTime().toString()),
                (quintptr) QThread::currentThreadId(),
                __PRETTY_FUNCTION__,
                qPrintable(dev));
     }
     void slotDeviceRemoved(const QString &dev)
     {
-        qDebug("SIGNAL tid=%#x %s: remove %s",
+        qDebug("%s: SIGNAL tid=%#llx %s: remove %s", qPrintable(QTime::currentTime().toString()),
                (quintptr) QThread::currentThreadId(),
                __PRETTY_FUNCTION__,
                qPrintable(dev));
     }
     void slotDeviceChanged(const QString &dev)
     {
-        qDebug("SIGNAL tid=%#x %s: change %s",
+        qDebug("%s: SIGNAL tid=%#llx %s: change %s", qPrintable(QTime::currentTime().toString()),
                (quintptr) QThread::currentThreadId(),
                __PRETTY_FUNCTION__,
                qPrintable(dev));
@@ -94,7 +98,7 @@ protected:
             else if (event->action() == QDeviceChangeEvent::Remove)
                 action = "Remove";
 
-            qDebug("tid=%#x event=%d %s: %s %s",
+            qDebug("tid=%#llx event=%d %s: %s %s",
                    (quintptr) QThread::currentThreadId(),
                    e->type(),
                    __PRETTY_FUNCTION__,
