@@ -112,14 +112,12 @@ void appendData(const QString &data, QString &dev)
 
 void QDeviceWatcherPrivate::parseDeviceInfo(int n)
 {
-    //zDebug("%s active", qPrintable(QTime::currentTime().toString()));
-
     Q_UNUSED(n)
 
     //! Change includes Bind or Bind is treated ad Add, Unbind
     enum class ActionType {Unknown, Add, Remove, Change, Ignore};
     static const QByteArrayList dataFieldsUsed {
-        "SUBSYSTEM", "DEVTYPE", "DEVNAME", "HID_ID", "HID_NAME", "HID_UNIQ", "PRODUCT"
+        "SUBSYSTEM", "DEVTYPE", "DEVNAME", "HID_ID", "HID_NAME", "HID_UNIQ", "PRODUCT", "DEVPATH"
     };
 
 #ifdef VERBOSE_DEBUG_OUTPUT
