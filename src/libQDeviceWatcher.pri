@@ -55,7 +55,9 @@ TEMPLATE -= fakelib
 
 isEmpty(PROJECTROOT): PROJECTROOT = $$PWD/..
 include($${PROJECTROOT}/common.pri)
-preparePaths($$OUT_PWD/../out)
+#preparePaths($$OUT_PWD/../out)
+CONFIG(release, debug|release): preparePaths($$OUT_PWD/../out/release)
+CONFIG(debug, debug|release): preparePaths($$OUT_PWD/../out/debug)
 CONFIG += depend_includepath #?
 mac_framework: PROJECT_TARGETNAME = $$NAME
 
