@@ -390,7 +390,8 @@ static inline void dw_destroy_internal_window(HWND hwnd)
         DestroyWindow(hwnd);
 
 #if CONFIG_NOTIFICATION
-    UnregisterDeviceNotification(hDevNotify);
+        // WARNING:
+    //UnregisterDeviceNotification(hDevNotify);
 #endif
     UnregisterClass(reinterpret_cast<const wchar_t *>(className().utf16()), qWinAppInst());
 }
