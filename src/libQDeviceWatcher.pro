@@ -4,6 +4,8 @@ CONFIG *= qdevicewatcher-buildlib
 !include(libQDeviceWatcher.pri): error(could not find ibQDeviceWatcher.pri)
 staticlib|isEqual(STATICLINK, 1): DEFINES += BUILD_QDEVICEWATCHER_STATIC
 
+CONFIG += c++17
+
 isEqual(Q_DEVICE_WATCHER_DEBUG, 1) {
     DEFINES += CONFIG_DEBUG
 }

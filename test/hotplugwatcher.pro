@@ -3,6 +3,8 @@ QT		 -= gui
 CONFIG   += console
 CONFIG   -= app_bundle
 
+CONFIG += c++17
+
 TARGET = hotplugwatcher
 
 Q_DEVICE_WATCHER_DEBUG = 1

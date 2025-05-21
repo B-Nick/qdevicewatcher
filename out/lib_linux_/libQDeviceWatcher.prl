@@ -1,0 +1,7 @@
+QMAKE_PRL_BUILD_DIR = /home/nick/workspace/Qt/se-sensors/3rdparty/qdevicewatcher/src
+QMAKE_PRO_INPUT = libQDeviceWatcher.pro
+QMAKE_PRL_TARGET = libQDeviceWatcher.a
+QMAKE_PRL_CONFIG = lex yacc debug exceptions depend_includepath testcase_targets import_qpa_plugin file_copies qmake_use qt warn_on link_prl incremental plugin_manifest intelcet glibc_fortify_source stack_protector stack_clash_protection libstdcpp_assertions relro_now_linker linux unix posix gcc debug qml_debug qdevicewatcher-buildlib profile depend_includepath create_prl staticlib have_target static staticlib debug_info c++1z thread moc resources
+QMAKE_PRL_VERSION = 2.1.0
+QMAKE_PRL_LIBS = /usr/local/Qt-6.9.0/lib/libQt6Core5Compat.so /usr/local/Qt-6.9.0/lib/libQt6Core.so -lpthread
+QMAKE_PRL_LIBS_FOR_CMAKE = /usr/local/Qt-6.9.0/lib/libQt6Core5Compat.so;/usr/local/Qt-6.9.0/lib/libQt6Core.so;-lpthread;;;

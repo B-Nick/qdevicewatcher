@@ -87,7 +87,8 @@ public:
     QList<QObject *> event_receivers;
 
 private slots:
-    void parseDeviceInfo();
+    //void parseDeviceInfo();
+    void parseDeviceInfo(int);
 
 private:
     QDeviceWatcher *watcher;
