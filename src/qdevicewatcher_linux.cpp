@@ -110,9 +110,9 @@ void appendData(const QString &data, QString &dev)
 
 }   // namespace
 
-void QDeviceWatcherPrivate::parseDeviceInfo(int n)
+void QDeviceWatcherPrivate::parseDeviceInfo()
 {
-    Q_UNUSED(n)
+    //Q_UNUSED(n)
 
     //! Change includes Bind or Bind is treated ad Add, Unbind
     enum class ActionType {Unknown, Add, Remove, Change, Ignore};
@@ -341,7 +341,7 @@ bool QDeviceWatcherPrivate::init()
 
 #if CONFIG_SOCKETNOTIFIER
     socket_notifier = new QSocketNotifier(netlink_socket, QSocketNotifier::Read, this);
-    connect(socket_notifier, SIGNAL(activated(int)), SLOT(parseDeviceInfo(int))); // will always active
+    connect(socket_notifier, SIGNAL(activated(int)), SLOT(parseDeviceInfo())); // will always active
     socket_notifier->setEnabled(false);
 #elif CONFIG_TCPSOCKET
     //QAbstractSocket *socket = new QAbstractSocket(QAbstractSocket::UnknownSocketType, this); //will not detect "remove", why?
